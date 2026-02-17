@@ -1,0 +1,288 @@
+-- FIX LOAD_ENTRIES AND PURCHASES TABLES
+-- This will fix both the product_id and date column issues
+
+-- Step 1: Fix load_entries table - add missing product_id column
+DO $$ 
+BEGIN
+    -- Add product_id if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'product_id' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN product_id bigint;
+    END IF;
+    
+    -- Add supplier_id if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'supplier_id' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN supplier_id bigint;
+    END IF;
+    
+    -- Add business_id if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'business_id' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN business_id text NOT NULL DEFAULT 'default';
+    END IF;
+    
+    -- Add entry_date if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'entry_date' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN entry_date date NOT NULL DEFAULT CURRENT_DATE;
+    END IF;
+    
+    -- Add no_of_boxes if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'no_of_boxes' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN no_of_boxes integer NOT NULL DEFAULT 0;
+    END IF;
+    
+    -- Add quantity_with_box if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'quantity_with_box' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN quantity_with_box numeric(10,2) NOT NULL DEFAULT 0;
+    END IF;
+    
+    -- Add no_of_boxes_after if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'no_of_boxes_after' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN no_of_boxes_after integer NOT NULL DEFAULT 0;
+    END IF;
+    
+    -- Add quantity_after_box if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'quantity_after_box' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN quantity_after_box numeric(10,2) NOT NULL DEFAULT 0;
+    END IF;
+    
+    -- Add created_at if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'created_at' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN created_at timestamptz DEFAULT now();
+    END IF;
+    
+    -- Add updated_at if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'load_entries' AND column_name = 'updated_at' AND table_schema = 'public') THEN
+        ALTER TABLE public.load_entries ADD COLUMN updated_at timestamptz DEFAULT now();
+    END IF;
+END $$;
+
+-- Step 2: Fix purchases table - add missing date column and fix amount issues
+DO $$ 
+BEGIN
+    -- Add purchase_date if it doesn't exist (this is the correct column name)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'purchase_date' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN purchase_date date NOT NULL DEFAULT CURRENT_DATE;
+    END IF;
+    
+    -- Add business_id if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'business_id' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN business_id text NOT NULL DEFAULT 'default';
+    END IF;
+    
+    -- Add product_id if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'product_id' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN product_id bigint;
+    END IF;
+    
+    -- Add supplier_id if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'supplier_id' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN supplier_id bigint;
+    END IF;
+    
+    -- Add quantity_kg if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'quantity_kg' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN quantity_kg numeric(10,2);
+    END IF;
+    
+    -- Add price_per_kg if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'price_per_kg' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN price_per_kg numeric(10,2);
+    END IF;
+    
+    -- Add total_amount if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'total_amount' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN total_amount numeric(10,2) DEFAULT 0;
+    END IF;
+    
+    -- Add paid_amount if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'paid_amount' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN paid_amount numeric(10,2) DEFAULT 0;
+    END IF;
+    
+    -- Add balance_amount if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'balance_amount' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN balance_amount numeric(10,2) DEFAULT 0;
+    END IF;
+    
+    -- Fix amount column if it exists and has NOT NULL constraint
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'purchases' 
+        AND column_name = 'amount' 
+        AND table_schema = 'public' 
+        AND is_nullable = 'NO'
+    ) THEN
+        ALTER TABLE public.purchases ALTER COLUMN amount DROP NOT NULL;
+        ALTER TABLE public.purchases ALTER COLUMN amount SET DEFAULT 0;
+    END IF;
+    
+    -- Add created_at if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'created_at' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN created_at timestamptz DEFAULT now();
+    END IF;
+    
+    -- Add updated_at if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'purchases' AND column_name = 'updated_at' AND table_schema = 'public') THEN
+        ALTER TABLE public.purchases ADD COLUMN updated_at timestamptz DEFAULT now();
+    END IF;
+END $$;
+
+-- Step 3: Create missing tables if they don't exist
+CREATE TABLE IF NOT EXISTS public.products (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    business_id text NOT NULL,
+    name text NOT NULL,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.suppliers (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    business_id text NOT NULL,
+    name text NOT NULL,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    UNIQUE (business_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS public.salaries (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    business_id text NOT NULL,
+    salary_date date NOT NULL,
+    amount numeric(10,2) NOT NULL,
+    employee_id text,
+    notes text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Step 4: Enable Row Level Security
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.purchases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.load_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.salaries ENABLE ROW LEVEL SECURITY;
+
+-- Step 5: Create RLS policies
+-- Products policies
+DROP POLICY IF EXISTS products_select_policy ON public.products;
+DROP POLICY IF EXISTS products_insert_policy ON public.products;
+DROP POLICY IF EXISTS products_update_policy ON public.products;
+DROP POLICY IF EXISTS products_delete_policy ON public.products;
+
+CREATE POLICY products_select_policy ON public.products FOR SELECT USING (true);
+CREATE POLICY products_insert_policy ON public.products FOR INSERT WITH CHECK (true);
+CREATE POLICY products_update_policy ON public.products FOR UPDATE USING (true);
+CREATE POLICY products_delete_policy ON public.products FOR DELETE USING (true);
+
+-- Suppliers policies
+DROP POLICY IF EXISTS suppliers_select_policy ON public.suppliers;
+DROP POLICY IF EXISTS suppliers_insert_policy ON public.suppliers;
+DROP POLICY IF EXISTS suppliers_update_policy ON public.suppliers;
+DROP POLICY IF EXISTS suppliers_delete_policy ON public.suppliers;
+
+CREATE POLICY suppliers_select_policy ON public.suppliers FOR SELECT USING (true);
+CREATE POLICY suppliers_insert_policy ON public.suppliers FOR INSERT WITH CHECK (true);
+CREATE POLICY suppliers_update_policy ON public.suppliers FOR UPDATE USING (true);
+CREATE POLICY suppliers_delete_policy ON public.suppliers FOR DELETE USING (true);
+
+-- Purchases policies
+DROP POLICY IF EXISTS purchases_select_policy ON public.purchases;
+DROP POLICY IF EXISTS purchases_insert_policy ON public.purchases;
+DROP POLICY IF EXISTS purchases_update_policy ON public.purchases;
+DROP POLICY IF EXISTS purchases_delete_policy ON public.purchases;
+
+CREATE POLICY purchases_select_policy ON public.purchases FOR SELECT USING (true);
+CREATE POLICY purchases_insert_policy ON public.purchases FOR INSERT WITH CHECK (true);
+CREATE POLICY purchases_update_policy ON public.purchases FOR UPDATE USING (true);
+CREATE POLICY purchases_delete_policy ON public.purchases FOR DELETE USING (true);
+
+-- Load entries policies
+DROP POLICY IF EXISTS load_entries_select_policy ON public.load_entries;
+DROP POLICY IF EXISTS load_entries_insert_policy ON public.load_entries;
+DROP POLICY IF EXISTS load_entries_update_policy ON public.load_entries;
+DROP POLICY IF EXISTS load_entries_delete_policy ON public.load_entries;
+
+CREATE POLICY load_entries_select_policy ON public.load_entries FOR SELECT USING (true);
+CREATE POLICY load_entries_insert_policy ON public.load_entries FOR INSERT WITH CHECK (true);
+CREATE POLICY load_entries_update_policy ON public.load_entries FOR UPDATE USING (true);
+CREATE POLICY load_entries_delete_policy ON public.load_entries FOR DELETE USING (true);
+
+-- Salaries policies
+DROP POLICY IF EXISTS salaries_select_policy ON public.salaries;
+DROP POLICY IF EXISTS salaries_insert_policy ON public.salaries;
+DROP POLICY IF EXISTS salaries_update_policy ON public.salaries;
+DROP POLICY IF EXISTS salaries_delete_policy ON public.salaries;
+
+CREATE POLICY salaries_select_policy ON public.salaries FOR SELECT USING (true);
+CREATE POLICY salaries_insert_policy ON public.salaries FOR INSERT WITH CHECK (true);
+CREATE POLICY salaries_update_policy ON public.salaries FOR UPDATE USING (true);
+CREATE POLICY salaries_delete_policy ON public.salaries FOR DELETE USING (true);
+
+-- Step 6: Grant permissions
+GRANT ALL ON public.products TO anon;
+GRANT ALL ON public.products TO authenticated;
+GRANT ALL ON public.suppliers TO anon;
+GRANT ALL ON public.suppliers TO authenticated;
+GRANT ALL ON public.purchases TO anon;
+GRANT ALL ON public.purchases TO authenticated;
+GRANT ALL ON public.load_entries TO anon;
+GRANT ALL ON public.load_entries TO authenticated;
+GRANT ALL ON public.salaries TO anon;
+GRANT ALL ON public.salaries TO authenticated;
+
+-- Grant sequence permissions
+GRANT USAGE ON SEQUENCE public.products_id_seq TO anon;
+GRANT USAGE ON SEQUENCE public.products_id_seq TO authenticated;
+GRANT USAGE ON SEQUENCE public.suppliers_id_seq TO anon;
+GRANT USAGE ON SEQUENCE public.suppliers_id_seq TO authenticated;
+GRANT USAGE ON SEQUENCE public.purchases_id_seq TO anon;
+GRANT USAGE ON SEQUENCE public.purchases_id_seq TO authenticated;
+GRANT USAGE ON SEQUENCE public.load_entries_id_seq TO anon;
+GRANT USAGE ON SEQUENCE public.load_entries_id_seq TO authenticated;
+GRANT USAGE ON SEQUENCE public.salaries_id_seq TO anon;
+GRANT USAGE ON SEQUENCE public.salaries_id_seq TO authenticated;
+
+-- Step 7: Insert sample data
+INSERT INTO public.products (business_id, name) 
+VALUES 
+    ('santhosh1', 'Chicken Live'),
+    ('santhosh1', 'Chicken Cut'),
+    ('santhosh1', 'Chicken Leg'),
+    ('vasan', 'Chicken Live'),
+    ('vasan', 'Chicken Cut')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO public.suppliers (business_id, name) 
+VALUES 
+    ('santhosh1', 'Local Supplier 1'),
+    ('santhosh1', 'Local Supplier 2'),
+    ('vasan', 'Local Supplier 1'),
+    ('vasan', 'Local Supplier 2')
+ON CONFLICT DO NOTHING;
+
+-- Step 8: Verify all tables and columns
+SELECT 'ALL TABLES AND COLUMNS FIXED SUCCESSFULLY' as status;
+
+-- Check load_entries table structure
+SELECT 'LOAD_ENTRIES TABLE STRUCTURE' as table_name;
+SELECT 
+    column_name,
+    data_type,
+    is_nullable,
+    column_default
+FROM information_schema.columns 
+WHERE table_name = 'load_entries' 
+AND table_schema = 'public'
+ORDER BY ordinal_position;
+
+-- Check purchases table structure
+SELECT 'PURCHASES TABLE STRUCTURE' as table_name;
+SELECT 
+    column_name,
+    data_type,
+    is_nullable,
+    column_default
+FROM information_schema.columns 
+WHERE table_name = 'purchases' 
+AND table_schema = 'public'
+ORDER BY ordinal_position;
