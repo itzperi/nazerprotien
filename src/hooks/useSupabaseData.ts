@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 interface Product {
   id: number;
   name: string;
+  todays_price?: number;
 }
 
 interface Supplier {
@@ -60,6 +61,7 @@ interface SalaryRow {
   id: number;
   salaryDate: string;
   amount: number;
+  supplierId?: number;
 }
 
 export const useSupabaseData = (businessId: string) => {
@@ -80,26 +82,26 @@ export const useSupabaseData = (businessId: string) => {
         .select('*')
         .eq('business_id', businessId)
         .order('name');
-      
+
       if (error) {
         console.error('[BALANCE SYNC] Database query failed:', error);
         throw error;
       }
-      
+
       if (!customersData) {
         console.warn('[BALANCE SYNC] No customer data received from database');
         return;
       }
-      
+
       const mappedCustomers = customersData.map(c => ({
         name: c.name,
         phone: c.phone,
         balance: parseFloat(c.balance?.toString() || '0')
       }));
-      
-      console.log('[BALANCE SYNC] Successfully updated customer balances:', 
+
+      console.log('[BALANCE SYNC] Successfully updated customer balances:',
         mappedCustomers.map(c => `${c.name}: ₹${c.balance}`));
-      
+
       setCustomers(mappedCustomers);
     } catch (error) {
       console.error('[BALANCE SYNC] Critical error refreshing customers:', error);
@@ -111,22 +113,22 @@ export const useSupabaseData = (businessId: string) => {
   const getRealTimeBalance = async (customerName: string): Promise<number> => {
     try {
       console.log(`[BALANCE FETCH] Getting real-time balance for: ${customerName}`);
-      
+
       const { data: customerData, error } = await supabase
         .from('customers')
         .select('balance')
         .eq('name', customerName)
         .eq('business_id', businessId)
         .single();
-      
+
       if (error) {
         console.error(`[BALANCE FETCH] Database error for ${customerName}:`, error);
         return 0;
       }
-      
+
       const balance = customerData?.balance ? parseFloat(customerData.balance.toString()) : 0;
       console.log(`[BALANCE FETCH] Retrieved balance for ${customerName}: ₹${balance}`);
-      
+
       return balance;
     } catch (error) {
       console.error(`[BALANCE FETCH] Critical error fetching balance for ${customerName}:`, error);
@@ -135,28 +137,28 @@ export const useSupabaseData = (businessId: string) => {
   };
 
   // Get real-time customer balance by phone - DEDICATED BALANCE FETCHER
-  const getRealTimeBalanceByPhone = async (phone: string): Promise<{balance: number, name?: string}> => {
+  const getRealTimeBalanceByPhone = async (phone: string): Promise<{ balance: number, name?: string }> => {
     try {
       console.log(`[BALANCE FETCH] Getting real-time balance for phone: ${phone}`);
-      
+
       const { data: customerData, error } = await supabase
         .from('customers')
         .select('name, balance')
         .eq('phone', phone)
         .eq('business_id', businessId)
         .single();
-      
+
       if (error) {
         console.error(`[BALANCE FETCH] Database error for phone ${phone}:`, error);
         return { balance: 0 };
       }
-      
+
       const balance = customerData?.balance ? parseFloat(customerData.balance.toString()) : 0;
       console.log(`[BALANCE FETCH] Retrieved balance for phone ${phone}: ₹${balance}, Customer: ${customerData?.name}`);
-      
-      return { 
-        balance, 
-        name: customerData?.name 
+
+      return {
+        balance,
+        name: customerData?.name
       };
     } catch (error) {
       console.error(`[BALANCE FETCH] Critical error fetching balance for phone ${phone}:`, error);
@@ -169,35 +171,35 @@ export const useSupabaseData = (businessId: string) => {
     const loadData = async () => {
       try {
         setLoading(true);
-        
+
         console.log(`[DATA LOAD] Loading data for business_id: ${businessId}`);
-        
+
         // Load products
         const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('*')
           .eq('business_id', businessId)
           .order('name');
-        
+
         if (productsError) {
           console.error('[DATA LOAD] Error loading products:', productsError);
         } else {
           console.log(`[DATA LOAD] Loaded ${productsData?.length || 0} products`);
         }
-        
+
         // Load customers
         const { data: customersData, error: customersError } = await supabase
           .from('customers')
           .select('*')
           .eq('business_id', businessId)
           .order('name');
-        
+
         if (customersError) {
           console.error('[DATA LOAD] Error loading customers:', customersError);
         } else {
           console.log(`[DATA LOAD] Loaded ${customersData?.length || 0} customers`);
         }
-        
+
         // Load suppliers
         const { data: suppliersData, error: suppliersError } = await (supabase as any)
           .from('suppliers')
@@ -234,7 +236,11 @@ export const useSupabaseData = (businessId: string) => {
           console.log(`[DATA LOAD] Loaded ${billsData?.length || 0} bills`);
         }
 
-        setProducts(productsData || []);
+        setProducts((productsData || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          todays_price: (p as any).todays_price
+        })));
         setSuppliers((suppliersData || []).map(s => (s as any).name));
         setSuppliersFull((suppliersData || []).map((s: any) => ({ id: s.id, name: s.name })));
         setCustomers((customersData || []).map(c => ({
@@ -250,7 +256,7 @@ export const useSupabaseData = (businessId: string) => {
           quantityKg: p.quantity_kg != null ? parseFloat(p.quantity_kg) : null,
           pricePerKg: p.price_per_kg != null ? parseFloat(p.price_per_kg) : null
         })));
-        
+
         setBills((billsData || []).map(b => ({
           id: b.id,
           billNumber: (b as any).bill_number || undefined,
@@ -272,15 +278,15 @@ export const useSupabaseData = (businessId: string) => {
           gpayAmount: (b as any).gpay_amount ? parseFloat((b as any).gpay_amount.toString()) : undefined,
           timestamp: new Date(b.created_at || '')
         })));
-        
+
         // Show helpful message if no data found
-        if ((!productsData || productsData.length === 0) && 
-            (!customersData || customersData.length === 0) && 
-            (!billsData || billsData.length === 0)) {
+        if ((!productsData || productsData.length === 0) &&
+          (!customersData || customersData.length === 0) &&
+          (!billsData || billsData.length === 0)) {
           console.warn('[DATA LOAD] No data found. Please check database setup.');
           alert('No data found. Please follow the database setup instructions in MANUAL_DATABASE_SETUP.md');
         }
-        
+
       } catch (error) {
         console.error('Error loading data:', error);
         alert('Error loading data. Please check your Supabase connection and database setup.');
@@ -288,6 +294,8 @@ export const useSupabaseData = (businessId: string) => {
         setLoading(false);
       }
     };
+
+
 
     if (businessId) {
       loadData();
@@ -298,7 +306,7 @@ export const useSupabaseData = (businessId: string) => {
   const addProduct = async (product: Omit<Product, 'id'>) => {
     try {
       console.log(`[ADD PRODUCT] Adding product: ${product.name} for business: ${businessId}`);
-      
+
       const { data, error } = await supabase
         .from('products')
         .insert([{ name: product.name, business_id: businessId }])
@@ -312,7 +320,7 @@ export const useSupabaseData = (businessId: string) => {
         }
         throw error;
       }
-      
+
       console.log('[ADD PRODUCT] Product added successfully:', data);
       setProducts(prev => [...prev, data]);
     } catch (error) {
@@ -330,13 +338,15 @@ export const useSupabaseData = (businessId: string) => {
         .eq('business_id', businessId);
 
       if (error) throw error;
-      
+
       setProducts(prev => prev.map(p => p.id === id ? { ...p, name } : p));
     } catch (error) {
       console.error('Error updating product:', error);
       throw error;
     }
   };
+
+
 
   const deleteProduct = async (id: number) => {
     try {
@@ -347,7 +357,7 @@ export const useSupabaseData = (businessId: string) => {
         .eq('business_id', businessId);
 
       if (error) throw error;
-      
+
       setProducts(prev => prev.filter(p => p.id !== id));
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -360,29 +370,29 @@ export const useSupabaseData = (businessId: string) => {
   const addSupplier = async (name: string) => {
     try {
       console.log(`[ADD SUPPLIER] Adding supplier: ${name} for business: ${businessId}`);
-      
+
       if (!name.trim()) {
         throw new Error('Supplier name is required');
       }
-      
+
       const cleanName = name.trim();
-      
+
       // Try using the safe database function first
       try {
         const { data: supplierData, error: rpcError } = await (supabase as any).rpc('get_or_create_supplier', {
           p_business_id: businessId,
           p_supplier_name: cleanName
         });
-        
+
         if (rpcError) {
           console.warn('[ADD SUPPLIER] RPC function failed, trying direct insert:', rpcError);
           throw new Error(`RPC failed: ${rpcError.message}`);
         }
-        
+
         if (supplierData && supplierData.length > 0) {
           const supplier = supplierData[0];
           console.log(`[ADD SUPPLIER] Supplier ${supplier.is_new ? 'created' : 'found'}:`, supplier);
-          
+
           // Update local state
           setSuppliers(prev => [...prev, supplier.supplier_name]);
           setSuppliersFull(prev => {
@@ -392,21 +402,21 @@ export const useSupabaseData = (businessId: string) => {
             }
             return prev;
           });
-          
+
           return supplier;
         } else {
           throw new Error('No supplier data returned from RPC');
         }
       } catch (rpcError) {
         console.warn('[ADD SUPPLIER] RPC failed, trying direct insert:', rpcError);
-        
+
         // Fallback to direct insertion
         const { data, error } = await (supabase as any)
           .from('suppliers')
           .insert([{ name: cleanName, business_id: businessId }])
           .select('id, name')
           .single();
-        
+
         if (error) {
           console.error('[ADD SUPPLIER] Direct insert error:', error);
           if (error.code === '23505') {
@@ -414,7 +424,7 @@ export const useSupabaseData = (businessId: string) => {
           }
           throw error;
         }
-        
+
         console.log('[ADD SUPPLIER] Supplier added successfully via direct insert:', data);
         setSuppliers(prev => [...prev, data.name]);
         setSuppliersFull(prev => [...prev, { id: (data as any).id, name: data.name }]);
@@ -433,12 +443,12 @@ export const useSupabaseData = (businessId: string) => {
         p_business_id: businessId,
         p_search_term: searchTerm
       });
-      
+
       if (error) {
         console.error('Error fetching supplier suggestions:', error);
         return [];
       }
-      
+
       return data || [];
     } catch (error) {
       console.error('Error in getSupplierSuggestions:', error);
@@ -450,26 +460,26 @@ export const useSupabaseData = (businessId: string) => {
   const safeCreateCustomer = async (name: string, phone: string, balance: number = 0) => {
     try {
       console.log(`[SAFE CREATE] Creating customer: ${name}, phone: ${phone}`);
-      
+
       const { data, error } = await (supabase as any).rpc('safe_get_or_create_customer', {
         p_name: name,
         p_phone: phone,
         p_business_id: businessId,
         p_balance: balance
       });
-      
+
       if (error) {
         console.error('[SAFE CREATE] RPC error:', error);
         throw new Error(`Customer creation failed: ${error.message}`);
       }
-      
+
       if (!data || data.length === 0) {
         throw new Error('No customer data returned');
       }
-      
+
       const customerData = data[0];
       console.log(`[SAFE CREATE] Customer ${customerData.is_new ? 'created' : 'found'}:`, customerData);
-      
+
       // Update local state
       setCustomers(prev => {
         const exists = prev.find(c => c.phone === phone);
@@ -482,7 +492,7 @@ export const useSupabaseData = (businessId: string) => {
         }
         return prev;
       });
-      
+
       return customerData;
     } catch (error) {
       console.error('[SAFE CREATE] Error:', error);
@@ -492,12 +502,12 @@ export const useSupabaseData = (businessId: string) => {
   const addCustomer = async (customer: Customer) => {
     try {
       console.log(`[ADD CUSTOMER] Adding customer: ${customer.name} for business: ${businessId}`);
-      
+
       // Validate required fields
       if (!customer.name || customer.name.trim() === '') {
         throw new Error('Customer name is required');
       }
-      
+
       if (!customer.phone || customer.phone.trim() === '') {
         throw new Error('Customer phone is required');
       }
@@ -531,7 +541,7 @@ export const useSupabaseData = (businessId: string) => {
         });
         return existingCustomer;
       }
-      
+
       // Insert new customer
       const insertData = {
         name: customer.name.trim(),
@@ -560,16 +570,16 @@ export const useSupabaseData = (businessId: string) => {
         }
         throw new Error(`Database error: ${error.message}`);
       }
-      
+
       console.log('[ADD CUSTOMER] Customer added successfully:', data);
-      
+
       // Update local state
       setCustomers(prev => [...prev, {
         name: data.name,
         phone: data.phone,
         balance: parseFloat(data.balance?.toString() || '0')
       }]);
-      
+
       return data;
     } catch (error) {
       console.error('[ADD CUSTOMER] Error adding customer:', error);
@@ -636,7 +646,7 @@ export const useSupabaseData = (businessId: string) => {
   const updateCustomer = async (index: number, customer: Customer) => {
     try {
       const existingCustomer = customers[index];
-      
+
       // Update in database using the original customer's name as identifier
       const { error } = await supabase
         .from('customers')
@@ -650,7 +660,7 @@ export const useSupabaseData = (businessId: string) => {
         .eq('business_id', businessId);
 
       if (error) throw error;
-      
+
       // Update local state
       setCustomers(prev => prev.map((c, i) => i === index ? customer : c));
     } catch (error) {
@@ -662,7 +672,7 @@ export const useSupabaseData = (businessId: string) => {
   const updateCustomerBalance = async (customerName: string, newBalance: number) => {
     try {
       console.log(`[BALANCE UPDATE] Updating ${customerName} balance to ₹${newBalance}`);
-      
+
       const { error } = await supabase
         .from('customers')
         .update({ balance: newBalance })
@@ -673,17 +683,17 @@ export const useSupabaseData = (businessId: string) => {
         console.error(`[BALANCE UPDATE] Database update failed for ${customerName}:`, error);
         throw error;
       }
-      
+
       console.log(`[BALANCE UPDATE] Successfully updated ${customerName} balance in database`);
-      
+
       // Update local state immediately for instant UI feedback
-      setCustomers(prev => prev.map(c => 
+      setCustomers(prev => prev.map(c =>
         c.name === customerName ? { ...c, balance: newBalance } : c
       ));
-      
+
       // Critical: Refresh all customer data to ensure 100% synchronization across all views
       await refreshCustomersData();
-      
+
       console.log(`[BALANCE UPDATE] Balance synchronization complete for ${customerName}`);
     } catch (error) {
       console.error(`[BALANCE UPDATE] Critical error updating balance for ${customerName}:`, error);
@@ -830,7 +840,7 @@ export const useSupabaseData = (businessId: string) => {
         gpayAmount: (data as any).gpay_amount ? parseFloat((data as any).gpay_amount.toString()) : undefined,
         timestamp: new Date(data.created_at || data.timestamp || new Date())
       };
-      
+
       // Automatically update customer balance in database (no advance)
       try {
         const { error: custErr } = await supabase
@@ -844,13 +854,13 @@ export const useSupabaseData = (businessId: string) => {
       } catch (e) {
         console.error('[ADD BILL] Failed updating customer advance/balance:', e);
       }
-      
+
       setBills(prev => [newBill, ...prev]);
       console.log('Bill successfully added:', newBill);
       return newBill;
     } catch (error) {
       console.error('Error adding bill:', error);
-      
+
       // Provide user-friendly error message
       if (error instanceof Error) {
         if (error.message.includes('balance_amount')) {
@@ -858,8 +868,34 @@ export const useSupabaseData = (businessId: string) => {
         }
         throw error;
       }
-      
+
       throw new Error('Unexpected error occurred while saving bill');
+    }
+  };
+
+
+
+  // Update product price alone
+  const updateProductPrice = async (productId: number, newPrice: number) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ todays_price: newPrice } as any)
+        .eq('id', productId)
+        .eq('business_id', businessId);
+
+      if (error) {
+        console.error('Error updating product price:', error);
+        throw error;
+      }
+
+      setProducts(prev => prev.map(p =>
+        p.id === productId ? { ...p, todays_price: newPrice } : p
+      ));
+      return true;
+    } catch (error) {
+      console.error('Error updating product price:', error);
+      return false;
     }
   };
 
@@ -925,7 +961,7 @@ export const useSupabaseData = (businessId: string) => {
           await updateCustomerBalance(bill.customer, newCustomerBalance);
         }
       }
-      
+
       // Update customer balance as well (no advance)
       try {
         const { error: custErr } = await supabase
@@ -969,7 +1005,7 @@ export const useSupabaseData = (businessId: string) => {
         const newCustomerBalance = customer.balance - billToDelete.balanceAmount;
         await updateCustomerBalance(billToDelete.customer, newCustomerBalance);
       }
-      
+
       setBills(prev => prev.filter(b => b.id !== id));
     } catch (error) {
       console.error('Error deleting bill:', error);
@@ -992,32 +1028,34 @@ export const useSupabaseData = (businessId: string) => {
   const deleteSupplier = async (supplierId: number) => {
     try {
       console.log(`[DELETE SUPPLIER] Deleting supplier ID: ${supplierId} for business: ${businessId}`);
-      
+
       // Use the database function for cascade delete
       const { error } = await (supabase as any).rpc('delete_supplier_with_cascade', {
         p_supplier_id: supplierId,
         p_business_id: businessId
       });
-      
+
       if (error) {
         console.error('[DELETE SUPPLIER] Database error:', error);
         throw error;
       }
-      
+
       // Update local state
-      setSuppliers(prev => prev.filter(s => {
-        if (typeof s === 'string') return true; // Keep string entries
-        return s.id !== supplierId;
-      }));
-      
+      // Find the name to remove from the string array
+      const supplierToRemove = suppliersFull.find(s => s.id === supplierId);
+
+      if (supplierToRemove) {
+        setSuppliers(prev => prev.filter(name => name !== supplierToRemove.name));
+      }
+
       setSuppliersFull(prev => prev.filter(s => s.id !== supplierId));
-      
+
       // Also remove from purchases and salaries if they exist
-      setPurchases(prev => prev.filter(p => p.supplier_id !== supplierId));
-      setSalaries(prev => prev.filter(s => s.supplier_id !== supplierId));
-      
+      setPurchases(prev => prev.filter(p => p.supplierId !== supplierId));
+      setSalaries(prev => prev.filter(s => s.supplierId !== supplierId));
+
       console.log('[DELETE SUPPLIER] Supplier and all related data deleted successfully');
-      
+
     } catch (error) {
       console.error('[DELETE SUPPLIER] Error deleting supplier:', error);
       throw error;
@@ -1035,6 +1073,7 @@ export const useSupabaseData = (businessId: string) => {
     salaries,
     addProduct,
     updateProduct,
+    updateProductPrice,
     deleteProduct,
     addCustomer,
     safeCreateCustomer,
@@ -1052,6 +1091,30 @@ export const useSupabaseData = (businessId: string) => {
     getLatestBalanceByPhone,
     refreshCustomersData,
     getRealTimeBalance,
-    getRealTimeBalanceByPhone
+    getRealTimeBalanceByPhone,
+    refreshProducts: async () => {
+      // Create a simplified refreshProducts that re-runs the product query part of loadData
+      // Or better, just expose the one we created inside useEffect? No, useEffect closure.
+      // We need to define refreshProducts OUTSIDE useEffect or useRef.
+      // Refactoring is too risky for now. Let's just create a duplicate fetch here.
+
+      try {
+        const { data: productsData, error: productsError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('business_id', businessId)
+          .order('name');
+
+        if (!productsError && productsData) {
+          setProducts((productsData || []).map(p => ({
+            id: p.id,
+            name: p.name,
+            todays_price: (p as any).todays_price
+          })));
+        }
+      } catch (e) {
+        console.error('Error manual refresh products', e);
+      }
+    }
   };
 };
