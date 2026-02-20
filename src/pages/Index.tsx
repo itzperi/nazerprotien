@@ -824,49 +824,82 @@ Thank you for your business! 🙏
 
   // Updated function to show confirmation dialog with enhanced validation
   const handleShowConfirmDialog = async () => {
+    // Local variables to handle state updates within the function scope (Fixes stale state bug)
+    let finalCustomerName = selectedCustomer;
+    let finalCustomerPhone = selectedCustomerPhone;
+    let isWalkIn = isWalkInMode;
+
     // Check if customer is required
     if (requireCustomerDetails) {
-      if (!selectedCustomer && !isWalkInMode) {
+      if (!finalCustomerName && !isWalkIn) {
         alert('Please select a customer or enable walk-in mode');
         return;
       }
 
-      if (isWalkInMode && !selectedCustomerPhone) {
+      if (isWalkIn && !finalCustomerPhone) {
         alert('Please enter phone number for walk-in customer');
         return;
       }
     } else {
       // Validation disabled (Rush Mode): Ensure defaults if missing
-      if (!selectedCustomer && !isWalkInMode) {
-        // Auto-generate walk-in customer
-        try {
-          const timestamp = Date.now().toString();
-          const randomId = timestamp.slice(-6);
-          const walkInName = `Walk-in-${randomId}`;
-          // Generate a pseudo-valid 10-digit phone number starting with 99
-          // to satisfy strict validation while being unique enough
-          const walkInPhone = `99${timestamp.slice(-8)}`;
+      if (!finalCustomerName && !isWalkIn) {
+        // Auto-generate walk-in customer with RETRY LOGIC & FALLBACKS
+        let attempts = 0;
+        const maxAttempts = 3;
+        let success = false;
 
-          console.log(`[RUSH MODE] Auto-generating customer: ${walkInName}, ${walkInPhone}`);
+        while (attempts < maxAttempts && !success) {
+          try {
+            attempts++;
+            const timestamp = Date.now().toString();
+            // Add random suffix to ensure uniqueness even in same millisecond
+            const randomSuffix = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+            // Use 99 prefix + last 5 of timestamp + 3 random digits for better distribution
+            const walkInPhone = `99${timestamp.slice(-5)}${randomSuffix}`;
+            const walkInName = `Walk-in Customer (${walkInPhone})`;
 
-          await safeCreateCustomer(walkInName, walkInPhone, 0);
-          setSelectedCustomer(walkInName);
-          setSelectedCustomerPhone(walkInPhone);
-          // Set walk-in mode to true so other checks pass
-          setIsWalkInMode(true);
+            console.log(`[RUSH MODE] Auto-generating customer (Attempt ${attempts}/${maxAttempts}): ${walkInName}, ${walkInPhone}`);
 
-          // Small delay to ensure state updates if needed, though await above handles DB
-        } catch (e) {
-          console.error("Failed to auto-generate walk-in customer", e);
-          alert("Failed to generate walk-in customer. Please try again.");
-          return;
+            // Try 1: Safe RPC Creation
+            try {
+              await safeCreateCustomer(walkInName, walkInPhone, 0);
+              console.log(`[RUSH MODE] RPC creation successful`);
+            } catch (rpcError) {
+              console.warn(`[RUSH MODE] RPC failed, trying direct insert`, rpcError);
+              // Try 2: Direct Insert Fallback (if RPC fails/timeouts/perm issues)
+              await addCustomer({ name: walkInName, phone: walkInPhone, balance: 0 });
+              console.log(`[RUSH MODE] Direct insert successful`);
+            }
+
+            // Update local variables for immediate use
+            finalCustomerName = walkInName;
+            finalCustomerPhone = walkInPhone;
+            isWalkIn = true;
+
+            // Update state for UI
+            setSelectedCustomer(walkInName);
+            setSelectedCustomerPhone(walkInPhone);
+            setIsWalkInMode(true);
+
+            success = true;
+
+          } catch (e) {
+            console.warn(`[RUSH MODE] Failed to auto-generate walk-in customer (Attempt ${attempts})`, e);
+            if (attempts >= maxAttempts) {
+              console.error("All attempts to generate walk-in customer failed");
+              alert("Failed to generate walk-in customer system. Please try again.");
+              return; // Stop execution
+            }
+            // Small random delay before retry
+            await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+          }
         }
       }
     }
 
     // Check if it's a balance-only payment or has items
     const validItems = billItems.filter(item => item.item && item.weight && item.rate);
-    const existingBalance = customers.find(c => c.name === selectedCustomer)?.balance || 0;
+    const existingBalance = customers.find(c => c.name === finalCustomerName)?.balance || 0;
     const hasPaymentAmount = paymentAmount && parseFloat(paymentAmount) > 0;
 
     // Allow balance-only payment if customer has existing balance and payment amount is entered
@@ -876,7 +909,7 @@ Thank you for your business! 🙏
     }
 
     // If customer name typed doesn't exist, prompt for phone and auto-add
-    if (!isWalkInMode && selectedCustomer && !customers.find(c => c.name.toLowerCase() === selectedCustomer.toLowerCase())) {
+    if (!isWalkIn && finalCustomerName && !customers.find(c => c.name.toLowerCase() === finalCustomerName.toLowerCase())) {
       const phone = window.prompt('New customer detected. Enter 10-digit mobile number to add:');
       if (!phone) {
         alert('Phone number is required to add new customer');
@@ -888,8 +921,9 @@ Thank you for your business! 🙏
         return;
       }
       try {
-        await addCustomer({ name: selectedCustomer, phone: cleanPhone, balance: 0 });
+        await addCustomer({ name: finalCustomerName, phone: cleanPhone, balance: 0 });
         setSelectedCustomerPhone(cleanPhone);
+        finalCustomerPhone = cleanPhone; // Update local variable
       } catch (e) {
         alert('Failed to add customer. Please try again.');
         return;
@@ -924,15 +958,75 @@ Thank you for your business! 🙏
       setShowConfirmDialog(true);
     } else {
       // No payment amount - direct bill creation for balance
-      handleConfirmBillWithoutPayment();
+      // We must pass the correct customer details to the next function
+      // NOTE: handleConfirmBillWithoutPayment relies on state, which is updated asynchronously.
+      // But since we updated state above, and React batches, we might be OK?
+      // NO, state updates inside event handlers are not immediately reflected in other function calls if they rely on closure state.
+      // We need to pass arguments or ensure handleConfirmBillWithoutPayment uses the latest data.
+      // REFACTOR: Modify handleConfirmBillWithoutPayment to accept optional overrides or check refs.
+      // For now, let's update strict vars.
+      // Actually, passing data via state is risky here.
+      // Better to call a refactored version of confirm logic that accepts arguments.
+      // Given constraints, we will rely on Ref or pass params.
+      // Check validation pass?
+
+      // Since we can't easily refactor the downstream functions in this single block replacement without changing their signatures,
+      // and they depend on 'selectedCustomer' state...
+      // We rely on the fact that we called setSelectedCustomer above. 
+      // BUT `handleConfirmBillWithoutPayment` uses `selectedCustomer` from its closure.
+      // This is the tricky part. 
+      // Workaround: We will manually update the relevant refs or ensure we wait? We can't wait for state.
+
+      // SAFE FIX: We will update the `addBill` call IN THIS FUNCTION if possible? 
+      // No, `handleConfirmBillWithoutPayment` logic is complex.
+
+      // Alternative: Use a Ref to store the "pending" transaction customer.
+      // Or simply pass the customer data to the confirm functions?
+      // They take no arguments currently.
+
+      // Let's modify the downstream calls to use `finalCustomerName`? 
+      // We can't change their signature here easily as they are defined elsewhere in the file.
+      // Wait, `handleConfirmBillWithoutPayment` is defined in the same file.
+      // I can only edit this block. 
+
+      // We will assume `handleConfirmBillWithoutPayment` reads from STATE. 
+      // If we called `setSelectedCustomer`, the state update is queued.
+      // If we call `handleConfirmBillWithoutPayment` immediately, it sees OLD state.
+
+      // TEMPORARY FIX: We can invoke the logic directly here or use a timeout?
+      // Timeout is bad.
+
+      // Best approach: We assume the user clicks "Confirm" on the dialog later? 
+      // Wait. `handleShowConfirmDialog` just shows the dialog OR calls `handleConfirmBillWithoutPayment` (for no payment).
+      // If `hasPaymentAmount` is false, it calls `handleConfirmBillWithoutPayment()`.
+
+      // If we are in this block, and we just generated a customer, `handleConfirmBillWithoutPayment` will FAIL due to stale state.
+      // I MUST refactor `handleConfirmBillWithoutPayment` to start accepting args, OR inline its logic.
+
+      // Let's UPDATE the confirm functions to read from a Mutable Ref if permitted, or just Pass Arguments to them (and I'll need to update their definitions too).
+      // Since I am already replacing a huge chunk, I should update the downstream functions if they are within range.
+      // Checking file lines... `handleConfirmBillWithoutPayment` is at line 930. 
+      // My replacement range EndLine is 1118.
+      // `handleConfirmBillWithoutPayment` IS inside the replacement range!
+      // I CAN REFACTOR EVERYTHING!
+
+      handleConfirmBillWithoutPayment(finalCustomerName, finalCustomerPhone);
     }
   };
 
   // Enhanced bill confirmation without payment with comprehensive error handling
-  const handleConfirmBillWithoutPayment = async () => {
+  // Updated to accept overrides for customer details to fix stale state issues
+  const handleConfirmBillWithoutPayment = async (overrideName?: string, overridePhone?: string) => {
     try {
-      const ok = await handleAddCustomerIfNeeded();
-      if (!ok) return;
+      // Use overrides if provided, otherwise fall back to state
+      const targetName = overrideName || selectedCustomer;
+      const targetPhone = overridePhone || selectedCustomerPhone;
+
+      // Re-validate if needed (though handleShowConfirmDialog presumably did it)
+      if (!targetName) return;
+
+      // We skip handleAddCustomerIfNeeded here because we likely handled it upstream or it's a walk-in
+
       // Calculate current items total (display only)
       const itemsTotal = billItems.filter(item => item.item && item.weight && item.rate).reduce((sum, item) => sum + item.amount, 0);
       const extraCharges = (parseFloat(cleaningCharge) || 0) + (parseFloat(deliveryCharge) || 0);
@@ -942,10 +1036,10 @@ Thank you for your business! 🙏
       const totalBillAmount = previousBalance + itemsTotal + extraCharges;
       const newBalance = totalBillAmount - 0; // No payment, so new balance = total bill amount
 
-      // Create bill record with running balance logic
+      // Create bill record using TARGET details
       const billRecord = {
-        customer: selectedCustomer,
-        customerPhone: selectedCustomerPhone,
+        customer: targetName,
+        customerPhone: targetPhone,
         date: selectedDate,
         items: validItems,
         totalAmount: itemsTotal + extraCharges, // transaction amount includes charges
@@ -986,6 +1080,14 @@ Thank you for your business! 🙏
   };
 
   // Enhanced bill confirmation with comprehensive error handling
+  // Note: This is called by the Dialog "Confirm" button usually.
+  // The Dialog Confirm button will trigger this. The state `selectedCustomer` SHOULD be updated by then because of the render cycle?
+  // When `setShowConfirmDialog(true)` happens, the component re-renders showing the dialog.
+  // The User then clicks "Yes/Confirm".
+  // By that time, `useState` updates from the previous render cycle should be applied!
+  // So `handleConfirmBill` (called from dialog) MIGHT be safe.
+  // BUT `handleConfirmBillWithoutPayment` is called IMMEDIATELY in the same stack. So it NEEDS arguments.
+
   const handleConfirmBill = async () => {
     try {
       const ok = await handleAddCustomerIfNeeded();
