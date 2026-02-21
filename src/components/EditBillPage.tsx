@@ -38,6 +38,7 @@ interface Customer {
 interface Product {
   id: number;
   name: string;
+  todays_price?: number;
 }
 
 interface ShopDetails {
@@ -104,7 +105,17 @@ const EditBillPage: React.FC<EditBillPageProps> = ({
       const amount = parseFloat(value) || 0;
       newItems[index].amount = amount;
 
-      const rate = parseFloat(newItems[index].rate) || 0;
+      let rate = parseFloat(newItems[index].rate) || 0;
+
+      // Auto-fetch rate if missing and we have an item name
+      if (rate === 0 && newItems[index].item) {
+        const selectedProduct = products.find(p => p.name === newItems[index].item);
+        if (selectedProduct && selectedProduct.todays_price) {
+          rate = parseFloat(selectedProduct.todays_price.toString());
+          newItems[index].rate = rate.toString();
+        }
+      }
+
       if (rate > 0 && amount > 0) {
         newItems[index].weight = (amount / rate).toFixed(3);
       } else {
@@ -112,6 +123,18 @@ const EditBillPage: React.FC<EditBillPageProps> = ({
       }
     } else {
       (newItems[index] as any)[field] = value;
+    }
+
+    // Auto-fill rate from Today's Price when Item is selected
+    if (field === 'item') {
+      const selectedProduct = products.find(p => p.name === value);
+      if (selectedProduct && selectedProduct.todays_price) {
+        newItems[index].rate = selectedProduct.todays_price.toString();
+        // Recalculate weight if amount exists
+        if (newItems[index].amount > 0) {
+          newItems[index].weight = (newItems[index].amount / parseFloat(newItems[index].rate)).toFixed(3);
+        }
+      }
     }
 
     // Auto-fill weight from amount if rate changes

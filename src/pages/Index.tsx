@@ -662,7 +662,17 @@ Thank you for your business! 🙏
       const amount = parseFloat(value) || 0;
       newItems[index].amount = amount;
 
-      const rate = parseFloat(newItems[index].rate) || 0;
+      let rate = parseFloat(newItems[index].rate) || 0;
+
+      // Auto-fetch rate if missing and we have an item name
+      if (rate === 0 && newItems[index].item) {
+        const selectedProduct = products.find(p => p.name === newItems[index].item);
+        if (selectedProduct && (selectedProduct as any).todays_price) {
+          rate = parseFloat((selectedProduct as any).todays_price);
+          newItems[index].rate = rate.toString();
+        }
+      }
+
       if (rate > 0 && amount > 0) {
         newItems[index].weight = (amount / rate).toFixed(3);
       } else {
