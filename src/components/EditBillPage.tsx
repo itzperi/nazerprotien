@@ -88,21 +88,42 @@ const EditBillPage: React.FC<EditBillPageProps> = ({
     }
   };
 
-  const calculateAmount = (weight: string, rate: string) => {
-    return (parseFloat(weight) || 0) * (parseFloat(rate) || 0);
-  };
+  // const calculateAmount = (weight: string, rate: string) => {
+  //   return (parseFloat(weight) || 0) * (parseFloat(rate) || 0);
+  // };
 
   const recalculateTotals = (items: BillItem[], paidAmount: number) => {
     const itemsTotal = items.reduce((sum, item) => sum + item.amount, 0);
     return { itemsTotal, balanceAmount: itemsTotal - paidAmount };
   };
 
-  const handleItemChange = (index: number, field: keyof BillItem, value: string) => {
+  const handleItemChange = (index: number, field: keyof BillItem | 'amount_input', value: string) => {
     const newItems = [...editItems];
-    (newItems[index] as any)[field] = value;
-    if (field === 'weight' || field === 'rate') {
-      newItems[index].amount = calculateAmount(newItems[index].weight, newItems[index].rate);
+
+    if (field === 'amount_input') {
+      const amount = parseFloat(value) || 0;
+      newItems[index].amount = amount;
+
+      const rate = parseFloat(newItems[index].rate) || 0;
+      if (rate > 0 && amount > 0) {
+        newItems[index].weight = (amount / rate).toFixed(3);
+      } else {
+        newItems[index].weight = '';
+      }
+    } else {
+      (newItems[index] as any)[field] = value;
     }
+
+    // Auto-fill weight from amount if rate changes
+    if (field === 'rate') {
+      const rate = parseFloat(newItems[index].rate) || 0;
+      if (rate > 0 && newItems[index].amount > 0) {
+        newItems[index].weight = (newItems[index].amount / rate).toFixed(3);
+      } else if (rate === 0) {
+        newItems[index].weight = '';
+      }
+    }
+
     setEditItems(newItems);
     if (editingBill) {
       const { itemsTotal, balanceAmount } = recalculateTotals(newItems, editingBill.paidAmount);
@@ -418,8 +439,9 @@ Thank you for your business! 🙏`;
                         type="number"
                         step="0.1"
                         value={item.weight}
-                        onChange={(e) => handleItemChange(index, 'weight', e.target.value)}
-                        className="w-full p-1 border border-gray-200 rounded"
+                        readOnly
+                        className="w-full p-1 border border-gray-200 rounded bg-gray-100 text-gray-500 cursor-not-allowed"
+                        placeholder="0.000"
                       />
                     </td>
                     <td className="border border-gray-300 p-2">
@@ -432,7 +454,14 @@ Thank you for your business! 🙏`;
                       />
                     </td>
                     <td className="border border-gray-300 p-2 text-right font-medium">
-                      ₹{item.amount.toFixed(2)}
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.amount || ''}
+                        onChange={(e) => handleItemChange(index, 'amount_input', e.target.value)}
+                        className="w-full p-1 border border-gray-200 rounded text-right font-medium"
+                        placeholder="0.00"
+                      />
                     </td>
                     <td className="border border-gray-300 p-2 text-center">
                       <button
