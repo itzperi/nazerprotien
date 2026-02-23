@@ -14,6 +14,7 @@ import { QRSettings } from '../components/QRSettings';
 import { generateESCPOSReceipt } from '@/lib/receipt-formatter';
 import { useSupabaseData } from '../hooks/useSupabaseData';
 import { useBusinessInfo } from '../hooks/useBusinessInfo';
+import { useBillTemplate } from '../hooks/useBillTemplate';
 import BusinessInfoCapture from '../components/BusinessInfoCapture';
 import BusinessInfoDisplay from '../components/BusinessInfoDisplay';
 import PurchasePage from '../components/PurchasePage';
@@ -122,6 +123,9 @@ const Index = () => {
     hasBusinessInfo
   } = useBusinessInfo(isLoggedIn ? businessId : '');
 
+  // Fetch bill template config
+  const billTemplateConfig = useBillTemplate(isLoggedIn ? businessId : '');
+
   // State management
   const [currentView, setCurrentView] = useState('billing');
   const [suppliersInput, setSuppliersInput] = useState('');
@@ -182,11 +186,15 @@ const Index = () => {
     const newBalance = Math.max(totalAmount - paid, 0);
     const advance = Math.max(paid - totalAmount, 0);
 
-    const billContent = `
-${shopDetails?.shopName || 'BILLING SYSTEM'}
-${shopDetails?.address || ''}
-${shopDetails?.gstNumber ? `GST: ${shopDetails.gstNumber}` : ''}
+    const e = billTemplateConfig?.elements || {};
 
+    // Construct WhatsApp message based on visibility config if available
+    let billContent = `${businessInfo?.business_name || shopDetails?.shopName || 'BILLING SYSTEM'}\n`;
+    if (e.address1?.visible !== false) billContent += `${businessInfo?.address || shopDetails?.address || ''}\n`;
+    if (e.phone?.visible !== false) billContent += `${businessInfo?.phone || ''}\n`;
+    if (businessInfo?.gst_number && e.address2?.visible !== false) billContent += `GST: ${businessInfo.gst_number}\n`;
+
+    billContent += `
 BILL DETAILS
 ════════════════
 Customer: ${selectedCustomer || 'Walk-in Customer'}
@@ -211,8 +219,10 @@ Total Amount: ₹${totalAmount.toFixed(2)}
 Payment Amount: ₹${paid.toFixed(2)}
 New Balance: ₹${newBalance.toFixed(2)}${advance > 0 ? `\nAdvance Payment: ₹${advance.toFixed(2)}` : ''}
 
-Thank you for your business!
+${e.footer1?.customText || 'Thank you for your business!'}
+${e.footer2?.visible !== false ? (e.footer2?.customText || '') : ''}
     `.trim();
+
 
     const encodedMessage = encodeURIComponent(billContent);
     const cleanPhone = phone.replace(/\D/g, '');
@@ -1280,7 +1290,7 @@ Thank you for your business!
   }, [billItems, previousBalance, cleaningCharge, deliveryCharge, paymentAmount, paymentMethod, cashAmount, gpayAmount]);
 
   // Generate bill content using running balance system - ENHANCED for Vasan business with BOLD formatting and QR code support
-  const generateBillContent = (bill: Bill, uiPreviousBalance: number) => {
+  const generateBillContent = (bill: Bill, uiPreviousBalance: number, isPlainText: boolean = false) => {
     // Uses the new strict ESC/POS formatter
     const shop = shopDetails || {
       shopName: 'BUSINESS NAME',
@@ -1288,11 +1298,24 @@ Thank you for your business!
       gstNumber: ''
     };
 
-    // Parse address parts if possible
-    const addressParts = (shop.address || '').split(',');
-    const addrLine1 = addressParts[0] || '';
-    const addrLine2 = addressParts.slice(1, 3).join(', ') || ''; // Naive split
-    const city = addressParts.slice(3).join(', ') || '';
+    const address = businessInfo?.address || shop.address || '';
+    const addressParts = address.split(',');
+    const fullAddrLine1 = addressParts[0] || '';
+    const fullAddrLine2 = addressParts.slice(1).join(', ') || '';
+
+    const e = billTemplateConfig?.elements || {};
+
+    let addrLine1 = '';
+    let addrLine2 = '';
+    let phone1 = '';
+
+    if (e.address1?.visible !== false) addrLine1 = fullAddrLine1;
+    if (e.address2?.visible !== false) {
+      addrLine2 = businessInfo?.gst_number ? `GST: ${businessInfo.gst_number}` : fullAddrLine2;
+    }
+    if (e.phone?.visible !== false) {
+      phone1 = businessInfo?.phone || (userType === 'owner' ? '9876543210' : '9876543210');
+    }
 
     // Calculate totals for display
     const itemsTotal = bill.items.reduce((sum, item) => sum + item.amount, 0);
@@ -1300,11 +1323,11 @@ Thank you for your business!
 
     // Logic to match strict format expectations
     const billData = {
-      shopName: shop.shopName || 'SHOP NAME',
+      shopName: businessInfo?.business_name || shop.shopName || 'SHOP NAME',
       shopAddressLine1: addrLine1,
       shopAddressLine2: addrLine2,
-      shopCity: city,
-      shopPhone1: userType === 'owner' ? '9876543210' : '9876543210',
+      shopCity: '',
+      shopPhone1: phone1,
 
       billNumber: bill.billNumber || 'N/A',
       billDate: formatDate(bill.date), // DD-MM-YYYY
@@ -1330,12 +1353,12 @@ Thank you for your business!
       paidAmount: bill.paidAmount,
       closingBalance: bill.balanceAmount,
 
-      footerMessage1: 'Thank You!! Visit Again!!',
-      footerMessage2: 'FRESH!! FRESH!!'
+      footerMessage1: billTemplateConfig?.elements?.footer1?.customText || 'Thank You!! Visit Again!!',
+      footerMessage2: billTemplateConfig?.elements?.footer2?.visible !== false ? (billTemplateConfig?.elements?.footer2?.customText || 'FRESH!! FRESH!!') : ''
     };
 
     // Use the strict formatter
-    return generateESCPOSReceipt(billData);
+    return generateESCPOSReceipt(billData, { templateConfig: billTemplateConfig, isPlainText });
   };
 
   // Print current billing form (frontend view) - UPDATED with running balance system
@@ -1363,31 +1386,20 @@ Thank you for your business!
 
     const time = new Date().toLocaleTimeString();
 
-    // Get dynamic business info for print
-    let printBusinessName = shopDetails?.shopName || 'BILLING SYSTEM';
-    let printAddress = shopDetails?.address || 'Address not set';
-    let printContactInfo = '';
+    const e = billTemplateConfig?.elements || {};
 
-    if (businessId === 'vasan_chicken_perambur' || businessId === 'vasan') {
-      printContactInfo = `Phone: +91 9876543210
-WhatsApp: +91 9876543210
-Email: vasanchicken@gmail.com`;
-    } else if (businessId === 'santhosh1') {
-      printContactInfo = `Phone: 9840217992
-WhatsApp: 7200226930
-Email: mathangopal5467@yahoo.com`;
-    } else {
-      printContactInfo = `Phone: ${businessInfo?.phone || 'N/A'}
-Email: ${businessInfo?.email || 'N/A'}`;
-    }
+    // Construct text using config
+    let printBusinessName = businessInfo?.business_name || shopDetails?.shopName || 'BILLING SYSTEM';
+    let printAddress = '';
+    if (e.address1?.visible !== false) printAddress += `${businessInfo?.address || shopDetails?.address || 'Address not set'}\n`;
+    if (businessInfo?.gst_number && e.address2?.visible !== false) printAddress += `GST: ${businessInfo.gst_number}\n`;
+    let printContactInfo = '';
+    if (e.phone?.visible !== false) printContactInfo += `Phone: ${businessInfo?.phone || 'N/A'}\n`;
 
     const printContent = `
 ${printBusinessName.toUpperCase()} - BILLING PREVIEW
 ==================================
-${printAddress}
-${shopDetails?.gstNumber ? `GST: ${shopDetails.gstNumber}` : ''}
-${printContactInfo}
-
+${printAddress}${printContactInfo}
 Date: ${selectedDate}
 Time: ${time}
 Customer: ${selectedCustomer}
@@ -1408,6 +1420,9 @@ Total Bill Amount: ₹${totalBillAmount.toFixed(2)}
 Payment Amount: ₹${paidAmount.toFixed(2)}
 New Balance: ₹${newBalance.toFixed(2)}${advanceAmount > 0 ? `\nAdvance Payment: ₹${advanceAmount.toFixed(2)}` : ''}
 ================================
+
+${e.footer1?.customText || 'Thank you for your business!'}
+${e.footer2?.visible !== false ? (e.footer2?.customText || '') : ''}
 
 ** BILLING PREVIEW - NOT CONFIRMED **
 Use "Confirm Bill" to save this bill.
@@ -1455,14 +1470,14 @@ Use "Confirm Bill" to save this bill.
   // Enhanced Print bill function with mobile rendering support and Bluetooth integration
   const printBill = async (bill: Bill) => {
     try {
-      // Generate ESC/POS content strictly
-      const printContent = generateBillContent(bill, previousBalance);
+      // Check if we have a connected Bluetooth printer
+      const isBluetoothConnected = printerService.isConnected();
+
+      // Generate ESC/POS content strictly if bluetooth, else plaintext for browser print window
+      const printContent = generateBillContent(bill, previousBalance, !isBluetoothConnected);
 
       // Get QR code from Global Settings
       const qrCode = (qrSettings.enabled && qrSettings.imagePath) ? qrSettings.imagePath : undefined;
-
-      // Check if we have a connected Bluetooth printer
-      const isBluetoothConnected = printerService.isConnected();
 
       if (isBluetoothConnected) {
         toast.info("Printing to Bluetooth printer...");
@@ -1494,7 +1509,7 @@ Use "Confirm Bill" to save this bill.
       // Dynamic import for jsPDF to avoid build issues
       const { jsPDF } = await import('jspdf');
 
-      const billContent = await generateBillContent(bill, previousBalance);
+      const billContent = await generateBillContent(bill, previousBalance, true);
 
       // Create new PDF document
       const pdf = new jsPDF({
@@ -1534,7 +1549,7 @@ Use "Confirm Bill" to save this bill.
     } catch (error) {
       console.error('Error generating PDF:', error);
       // Fallback to text file if PDF generation fails
-      const billContent = await generateBillContent(bill, previousBalance);
+      const billContent = await generateBillContent(bill, previousBalance, true);
       const blob = new Blob([billContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1552,7 +1567,7 @@ Use "Confirm Bill" to save this bill.
   // Streamlined Send to WhatsApp without unnecessary alerts
   const sendToWhatsApp = async (bill: Bill) => {
     try {
-      const billContent = await generateBillContent(bill, previousBalance);
+      const billContent = await generateBillContent(bill, previousBalance, true);
       const encodedMessage = encodeURIComponent(billContent);
       const phoneNumber = bill.customerPhone.replace(/\D/g, '');
 
@@ -1577,7 +1592,7 @@ Use "Confirm Bill" to save this bill.
   // Streamlined Send to SMS without unnecessary alerts
   const sendToSms = async (bill: Bill) => {
     try {
-      const billContent = await generateBillContent(bill, previousBalance);
+      const billContent = await generateBillContent(bill, previousBalance, true);
       const phoneNumber = bill.customerPhone.replace(/\D/g, '');
 
       // Validate phone number
@@ -2655,13 +2670,6 @@ Generated by Billing System`;
               <FileText className="inline mr-1 h-4 w-4" />
               Edit Bill
             </button>
-            <a
-              href="/bill-format"
-              className="px-3 sm:px-4 py-1.5 rounded-lg font-medium text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center"
-            >
-              <Layout className="inline mr-1 h-4 w-4" />
-              Bill Settings
-            </a>
             <button
               onClick={() => setCurrentView('load')}
               className={`px-3 sm:px-4 py-1.5 rounded-lg font-medium text-sm ${currentView === 'load'

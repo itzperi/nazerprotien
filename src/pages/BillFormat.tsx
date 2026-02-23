@@ -24,7 +24,7 @@ const BillFormat = () => {
             </div>
             <div className="max-w-[1600px] mx-auto">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">Bill Format Settings</h1>
+                    <h1 className="text-2xl font-bold text-gray-900">Bill Format</h1>
                     <p className="text-gray-500">Customize your bill layout, printer settings, and templates.</p>
                 </div>
                 <BillCustomization businessId={businessId} />

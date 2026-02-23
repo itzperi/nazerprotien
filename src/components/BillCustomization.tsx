@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Save, Layout, Type, Image as ImageIcon, Settings, Printer, Ruler, ZoomIn, ZoomOut, RotateCcw, Check, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
+import { useBusinessInfo } from '../hooks/useBusinessInfo';
 
 interface BillCustomizationProps {
     businessId: string;
@@ -136,6 +137,9 @@ const BillCustomization: React.FC<BillCustomizationProps> = ({ businessId }) => 
     const [loading, setLoading] = useState(false);
     const [zoom, setZoom] = useState(1);
     const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+
+    // Business Info hook
+    const { businessInfo } = useBusinessInfo(businessId);
 
     // Load initial settings
     useEffect(() => {
@@ -292,10 +296,10 @@ const BillCustomization: React.FC<BillCustomizationProps> = ({ businessId }) => 
         return (
             <div style={getTemplateStyle()}>
                 {/* Header Section */}
-                {renderLine('shopName', MOCK_DATA.shopName, config.templateId === 't10' ? { textDecoration: 'underline', textUnderlineOffset: '3px' } : {})}
-                {renderLine('address1', MOCK_DATA.address1)}
-                {renderLine('address2', MOCK_DATA.address2)}
-                {renderLine('phone', MOCK_DATA.phone)}
+                {renderLine('shopName', businessInfo?.business_name || MOCK_DATA.shopName, config.templateId === 't10' ? { textDecoration: 'underline', textUnderlineOffset: '3px' } : {})}
+                {renderLine('address1', businessInfo?.address || MOCK_DATA.address1)}
+                {renderLine('address2', businessInfo?.gst_number ? `GST: ${businessInfo.gst_number}` : MOCK_DATA.address2)}
+                {renderLine('phone', businessInfo?.phone || MOCK_DATA.phone)}
 
                 {renderDivider()}
 
