@@ -51,34 +51,34 @@ const BillSharingComponent: React.FC<BillSharingComponentProps> = ({
   // Format bill content for sharing
   const formatBillContent = (includePdfLink = false) => {
     const pdfUrl = generatePdfUrl();
-    
-    const content = `🏪 ${shopDetails?.shopName || 'BILLING SYSTEM'}
-${shopDetails?.address ? `📍 ${shopDetails.address}` : ''}
-${shopDetails?.gstNumber ? `🧾 GST: ${shopDetails.gstNumber}` : ''}
-${shopDetails?.phone ? `📞 ${shopDetails.phone}` : ''}
 
-📋 BILL DETAILS
+    const content = `${shopDetails?.shopName || 'BILLING SYSTEM'}
+${shopDetails?.address ? `${shopDetails.address}` : ''}
+${shopDetails?.gstNumber ? `GST: ${shopDetails.gstNumber}` : ''}
+${shopDetails?.phone ? `Phone: ${shopDetails.phone}` : ''}
+
+BILL DETAILS
 ════════════════
-${bill.billNumber ? `🧾 Bill No: ${bill.billNumber}` : ''}
-👤 Customer: ${bill.customer}
-📱 Phone: ${bill.customerPhone}
-📅 Date: ${new Date(bill.date).toLocaleDateString('en-IN')}
+${bill.billNumber ? `Bill No: ${bill.billNumber}` : ''}
+Customer: ${bill.customer}
+Phone: ${bill.customerPhone}
+Date: ${new Date(bill.date).toLocaleDateString('en-IN')}
 
-🛒 ITEMS:
-${bill.items.map(item => 
-  `• ${item.item} - ${item.weight}kg @ ₹${item.rate}/kg = ₹${item.amount.toFixed(2)}`
-).join('\n')}
+ITEMS:
+${bill.items.map(item =>
+      `• ${item.item} - ${item.weight}kg @ ₹${item.rate}/kg = ₹${item.amount.toFixed(2)}`
+    ).join('\n')}
 
-💰 BILL SUMMARY:
+BILL SUMMARY:
 ────────────────
 Total Amount: ₹${bill.totalAmount.toFixed(2)}
 Paid Amount: ₹${bill.paidAmount.toFixed(2)}
 Balance Amount: ₹${bill.balanceAmount.toFixed(2)}
 ${bill.paymentMethod ? `Payment: ${bill.paymentMethod.toUpperCase()}` : ''}
 
-${includePdfLink ? `📄 Download Bill: ${pdfUrl}` : ''}
+${includePdfLink ? `Download Bill: ${pdfUrl}` : ''}
 
-Thank you for your business! 🙏`;
+Thank you for your business!`;
 
     return content;
   };
@@ -89,10 +89,10 @@ Thank you for your business! 🙏`;
     const message = formatBillContent(true);
     const encodedMessage = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/91${phoneNumber}?text=${encodedMessage}`;
-    
+
     window.open(whatsappUrl, '_blank');
     setShareStatus('shared');
-    
+
     // Auto-close modal after sharing if it's a modal
     if (showModal && onClose) {
       setTimeout(() => {
@@ -105,17 +105,17 @@ Thank you for your business! 🙏`;
   const handleSmsShare = () => {
     const phoneNumber = bill.customerPhone.replace(/\D/g, '');
     const message = formatBillContent(false); // SMS without PDF link due to length constraints
-    
+
     // Create SMS link (works on most mobile devices)
     const smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(message)}`;
-    
+
     // Try to open SMS app
     const link = document.createElement('a');
     link.href = smsUrl;
     link.click();
-    
+
     setShareStatus('shared');
-    
+
     // Auto-close modal after sharing if it's a modal
     if (showModal && onClose) {
       setTimeout(() => {

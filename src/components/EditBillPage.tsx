@@ -281,22 +281,21 @@ Thank you for your business!`;
     }
   };
 
-  // Sharing functions
   const formatBillContent = (bill: Bill) => {
-    return `🏪 BILLING SYSTEM
-📋 BILL DETAILS
+    return `BILLING SYSTEM
+BILL DETAILS
 ════════════════
-🧾 Bill No: ${bill.billNumber || 'N/A'}
-📅 Date: ${bill.date}
-👤 Customer: ${bill.customer}
-📱 Phone: ${bill.customerPhone}
+Bill No: ${bill.billNumber || 'N/A'}
+Date: ${bill.date}
+Customer: ${bill.customer}
+Phone: ${bill.customerPhone}
 
-🛒 ITEMS:
+ITEMS:
 ${bill.items.map((item, index) =>
       `${index + 1}. ${item.item} - ${item.weight}kg @ ₹${item.rate}/kg = ₹${item.amount.toFixed(2)}`
     ).join('\n')}
 
-💰 BILL SUMMARY:
+BILL SUMMARY:
 ────────────────
 Total Amount: ₹${bill.totalAmount.toFixed(2)}
 Paid Amount: ₹${bill.paidAmount.toFixed(2)}
@@ -305,7 +304,7 @@ Payment Method: ${bill.paymentMethod?.toUpperCase() || 'CASH'}
 ${bill.paymentMethod === 'upi' ? `UPI Type: ${bill.upiType}` : ''}
 ${bill.paymentMethod === 'check' ? `Bank: ${bill.bankName}, Check No: ${bill.checkNumber}` : ''}
 
-Thank you for your business! 🙏`;
+Thank you for your business!`;
   };
 
   const handleWhatsAppShare = (bill: Bill) => {

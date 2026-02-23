@@ -77,30 +77,30 @@ const WalkInBilling: React.FC<WalkInBillingProps> = ({
     const newBalance = previousBalance + itemsTotal;
 
     return `
-🏪 ${shopDetails?.shopName || 'BILLING SYSTEM'}
-📍 ${shopDetails?.address || ''}
-📞 Phone: ${selectedCustomerPhone}
-${shopDetails?.gstNumber ? `🧾 GST: ${shopDetails.gstNumber}` : ''}
+${shopDetails?.shopName || 'BILLING SYSTEM'}
+${shopDetails?.address || ''}
+Phone: ${selectedCustomerPhone}
+${shopDetails?.gstNumber ? `GST: ${shopDetails.gstNumber}` : ''}
 
-📋 BILL DETAILS
+BILL DETAILS
 ════════════════
-👤 Customer: Walk-in Customer
-📱 Phone: ${formatPhoneDisplay(selectedCustomerPhone)}
-📅 Date: ${new Date().toLocaleDateString('en-IN')}
-⏰ Time: ${new Date().toLocaleTimeString('en-IN', { hour12: true })}
+Customer: Walk-in Customer
+Phone: ${formatPhoneDisplay(selectedCustomerPhone)}
+Date: ${new Date().toLocaleDateString('en-IN')}
+Time: ${new Date().toLocaleTimeString('en-IN', { hour12: true })}
 
-🛒 ITEMS:
+ITEMS:
 ${validItems.map(item =>
       `• ${item.item} - ${item.weight}kg @ ₹${item.rate}/kg = ₹${item.amount.toFixed(2)}`
     ).join('\n')}
 
-💰 BILL SUMMARY:
+BILL SUMMARY:
 ────────────────
 Previous Balance: ₹${previousBalance.toFixed(2)}
 Current Items: ₹${itemsTotal.toFixed(2)}
 Total Amount: ₹${newBalance.toFixed(2)}
 
-Thank you for your business! 🙏
+Thank you for your business!
     `.trim();
   };
 
