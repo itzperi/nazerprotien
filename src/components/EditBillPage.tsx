@@ -8,6 +8,7 @@ interface BillItem {
   weight: string;
   rate: string;
   amount: number;
+  lockedField?: 'weight' | 'amount_input';
 }
 
 interface Bill {
@@ -137,13 +138,31 @@ const EditBillPage: React.FC<EditBillPageProps> = ({
       }
     }
 
-    // Auto-fill weight from amount if rate changes
+    // Auto-fill weight from amount if rate changes, or amount from weight
     if (field === 'rate') {
       const rate = parseFloat(newItems[index].rate) || 0;
-      if (rate > 0 && newItems[index].amount > 0) {
+      if (rate > 0 && newItems[index].amount > 0 && newItems[index].lockedField !== 'amount_input') {
         newItems[index].weight = (newItems[index].amount / rate).toFixed(3);
+      } else if (rate > 0 && newItems[index].weight && newItems[index].lockedField !== 'weight') {
+        newItems[index].amount = parseFloat(newItems[index].weight) * rate;
       } else if (rate === 0) {
         newItems[index].weight = '';
+      }
+    }
+
+    if (field === 'weight' && newItems[index].lockedField !== 'amount_input') {
+      const rate = parseFloat(newItems[index].rate) || 0;
+      const weight = parseFloat(newItems[index].weight) || 0;
+      if (rate > 0 && weight > 0) {
+        newItems[index].amount = weight * rate;
+      }
+    }
+
+    if (field === 'amount_input' && newItems[index].lockedField !== 'weight') {
+      const rate = parseFloat(newItems[index].rate) || 0;
+      const amount = parseFloat(value) || 0;
+      if (rate > 0 && amount > 0) {
+        newItems[index].weight = (amount / rate).toFixed(3);
       }
     }
 
@@ -155,13 +174,19 @@ const EditBillPage: React.FC<EditBillPageProps> = ({
   };
 
   const addNewItem = () => {
-    const newItem: BillItem = { no: editItems.length + 1, item: '', weight: '', rate: '', amount: 0 };
+    const newItem: BillItem = { no: editItems.length + 1, item: '', weight: '', rate: '', amount: 0, lockedField: 'weight' };
     const newItems = [...editItems, newItem];
     setEditItems(newItems);
     if (editingBill) {
       const { itemsTotal, balanceAmount } = recalculateTotals(newItems, editingBill.paidAmount);
       setEditingBill({ ...editingBill, items: newItems, totalAmount: itemsTotal, balanceAmount });
     }
+  };
+
+  const handleDoubleTap = (index: number, fieldName: 'weight' | 'amount_input') => {
+    const newItems = [...editItems];
+    newItems[index].lockedField = fieldName === 'amount_input' ? 'weight' : 'amount_input';
+    setEditItems(newItems);
   };
 
   const removeItem = (index: number) => {
@@ -457,14 +482,26 @@ Thank you for your business!`;
                       </select>
                     </td>
                     <td className="border border-gray-300 p-2">
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={item.weight}
-                        readOnly
-                        className="w-full p-1 border border-gray-200 rounded bg-gray-100 text-gray-500 cursor-not-allowed"
-                        placeholder="0.000"
-                      />
+                      {item.lockedField === 'weight' ? (
+                        <input
+                          type="text"
+                          value={item.weight ? (parseFloat(item.weight) < 1 && parseFloat(item.weight) > 0 ? `${(parseFloat(item.weight) * 1000).toFixed(0)} g` : `${parseFloat(item.weight).toFixed(3)} kg`) : ''}
+                          readOnly
+                          onDoubleClick={() => handleDoubleTap(index, 'weight')}
+                          className="w-full p-1 border border-gray-200 rounded bg-gray-100 text-gray-500 cursor-not-allowed"
+                          placeholder="0.000 kg"
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.001"
+                          value={item.weight}
+                          onChange={(e) => handleItemChange(index, 'weight', e.target.value)}
+                          onDoubleClick={() => handleDoubleTap(index, 'weight')}
+                          className="w-full p-1 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500"
+                          placeholder="0.000"
+                        />
+                      )}
                     </td>
                     <td className="border border-gray-300 p-2">
                       <input
@@ -477,11 +514,13 @@ Thank you for your business!`;
                     </td>
                     <td className="border border-gray-300 p-2 text-right font-medium">
                       <input
-                        type="number"
+                        type={item.lockedField === 'amount_input' ? 'text' : 'number'}
                         step="0.01"
-                        value={item.amount || ''}
+                        value={item.lockedField === 'amount_input' && item.amount ? `₹${item.amount.toFixed(2)}` : item.amount || ''}
+                        readOnly={item.lockedField === 'amount_input'}
+                        onDoubleClick={() => handleDoubleTap(index, 'amount_input')}
                         onChange={(e) => handleItemChange(index, 'amount_input', e.target.value)}
-                        className="w-full p-1 border border-gray-200 rounded text-right font-medium"
+                        className={`w-full p-1 border border-gray-200 rounded text-right font-medium focus:ring-2 focus:ring-blue-500 ${item.lockedField === 'amount_input' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                         placeholder="0.00"
                       />
                     </td>
