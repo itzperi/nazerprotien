@@ -126,8 +126,7 @@ class PrinterService {
     const qrCodeSection = qrCodeDataUrl ? `
       <div style="text-align: center; margin-top: 20px; border-top: 1px dashed #ccc; padding-top: 15px;">
         <img id="qr-img" src="${qrCodeDataUrl}" alt="QR Code" style="width: 150px; height: 150px;" />
-        <p style="margin-top: 8px; font-size: 14px; font-weight: bold;">Scan to Pay</p>
-        ${amount !== undefined ? `<p style="margin-top: 4px; font-size: 18px; font-weight: bold; background-color: #f0f0f0; padding: 4px; display: inline-block; border-radius: 4px;">Amount: ₹${amount.toFixed(2)}</p>` : ''}
+        ${amount !== undefined ? `<p style="margin-top: 8px; font-size: 16px; font-weight: bold;">scan to pay ₹${amount.toFixed(2)}</p>` : `<p style="margin-top: 8px; font-size: 16px; font-weight: bold;">scan to pay</p>`}
       </div>
     ` : '';
 

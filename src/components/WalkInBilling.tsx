@@ -330,11 +330,11 @@ Thank you for your business!
                 </pre>
               </div>
             </div>
-            {qrSettings?.enabled && qrSettings?.upiId && previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0) > 0 && (
+            {previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0) > 0 && (
               <div className="mt-4 flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg">
                 <p className="text-sm font-semibold text-gray-800 mb-2">Scan to Pay with UPI</p>
                 <QRCodeSVG
-                  value={`upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${(previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0)).toFixed(2)}&cu=INR`}
+                  value={`upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${(previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0)).toFixed(2)}&cu=INR&tn=BillWalkIn`}
                   size={150}
                   level="M"
                   includeMargin={true}

@@ -229,14 +229,11 @@ ${e.footer2?.visible !== false ? (e.footer2?.customText || '') : ''}
       ? (parseFloat(gpayAmount) || 0)
       : (itemsTotal + extraCharges);
 
-    if (qrSettings.enabled) {
-      if (qrSettings.upiId && targetAmountForQR > 0) {
-        const upiString = `upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(businessInfo?.business_name || shopDetails?.shopName || 'Business')}&am=${targetAmountForQR.toFixed(2)}&cu=INR`;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiString)}`;
-        billContent += `\n\nScan to Pay ₹${targetAmountForQR.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
-      } else if (qrSettings.imagePath) {
-        billContent += `\n\nScan to Pay:\n${qrSettings.imagePath}`;
-      }
+    if (targetAmountForQR > 0) {
+      const billNumStr = billData?.billNumber || billData?.id || 'New';
+      const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmountForQR.toFixed(2)}&cu=INR&tn=Bill${billNumStr}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
+      billContent += `\n\nScan to pay ₹${targetAmountForQR.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
     }
 
     const encodedMessage = encodeURIComponent(billContent);
@@ -1530,15 +1527,10 @@ Use "Confirm Bill" to save this bill.
       // Get QR code from Global Settings
       let finalQrCodeUrl: string | undefined = undefined;
       
-      if (qrSettings.enabled) {
-        if (qrSettings.upiId) {
-          // Dynamic UPI QR Code
-          const upiString = `upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${targetAmount.toFixed(2)}&cu=INR`;
-          finalQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiString)}`;
-        } else if (qrSettings.imagePath) {
-          // Fallback to static uploaded image
-          finalQrCodeUrl = qrSettings.imagePath;
-        }
+      if (targetAmount > 0) {
+        // Dynamic UPI QR Code
+        const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
+        finalQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
 
         // Convert to Base64 to ensure it prints reliably in the browser print dialog
         if (finalQrCodeUrl && finalQrCodeUrl.startsWith('http')) {
@@ -1616,42 +1608,35 @@ Use "Confirm Bill" to save this bill.
         yPosition += lineHeight;
       });
 
-      // Add QR Code if enabled
-      if (qrSettings.enabled) {
-        let qrUrl = '';
-        const targetAmount = bill.paymentMethod === 'cash_gpay' 
-          ? (bill.gpayAmount || bill.totalAmount) 
-          : bill.totalAmount;
-          
-        if (qrSettings.upiId && targetAmount > 0) {
-          const upiString = `upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${targetAmount.toFixed(2)}&cu=INR`;
-          qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiString)}`;
-        } else if (qrSettings.imagePath) {
-          qrUrl = qrSettings.imagePath;
-        }
+      // Add QR Code
+      const targetAmount = bill.paymentMethod === 'cash_gpay' 
+        ? (bill.gpayAmount || bill.totalAmount) 
+        : bill.totalAmount;
+        
+      if (targetAmount > 0) {
+        const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
 
-        if (qrUrl) {
-          try {
-            const response = await fetch(qrUrl);
-            const blob = await response.blob();
-            const base64Data = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-            
-            yPosition += 10;
-            // Check if we need a new page for QR code
-            if (yPosition > pageHeight - 60) {
-              pdf.addPage();
-              yPosition = 20;
-            }
-            pdf.addImage(base64Data, 'PNG', 10, yPosition, 40, 40);
-            pdf.setFont('courier', 'bold');
-            pdf.text(`Scan to Pay: Rs.${targetAmount.toFixed(2)}`, 10, yPosition + 45);
-          } catch (e) {
-            console.error("Failed to add QR code to PDF", e);
+        try {
+          const response = await fetch(qrUrl);
+          const blob = await response.blob();
+          const base64Data = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          
+          yPosition += 10;
+          // Check if we need a new page for QR code
+          if (yPosition > pageHeight - 60) {
+            pdf.addPage();
+            yPosition = 20;
           }
+          pdf.addImage(base64Data, 'PNG', 10, yPosition, 40, 40);
+          pdf.setFont('courier', 'bold');
+          pdf.text(`Scan to pay ₹${targetAmount.toFixed(2)}`, 10, yPosition + 45);
+        } catch (e) {
+          console.error("Failed to add QR code to PDF", e);
         }
       }
 
@@ -1689,14 +1674,10 @@ Use "Confirm Bill" to save this bill.
         ? (bill.gpayAmount || bill.totalAmount) 
         : bill.totalAmount;
 
-      if (qrSettings.enabled) {
-        if (qrSettings.upiId && targetAmount > 0) {
-          const upiString = `upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${targetAmount.toFixed(2)}&cu=INR`;
-          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiString)}`;
-          billContent += `\n\nScan to Pay ₹${targetAmount.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
-        } else if (qrSettings.imagePath) {
-          billContent += `\n\nScan to Pay:\n${qrSettings.imagePath}`;
-        }
+      if (targetAmount > 0) {
+        const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
+        billContent += `\n\nScan to pay ₹${targetAmount.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
       }
 
       const encodedMessage = encodeURIComponent(billContent);
@@ -3610,7 +3591,7 @@ Generated by Billing System`;
                       )}
                       
                       {/* Dynamic UPI QR Code Preview */}
-                      {qrSettings.enabled && qrSettings.upiId && paymentMethod === 'upi' && (() => {
+                      {paymentMethod === 'upi' && (() => {
                           const itemsTotal = billItems.filter(item => item.item && item.weight && item.rate).reduce((sum, item) => sum + item.amount, 0);
                           const validItems = billItems.filter(item => item.item && item.weight && item.rate);
                           let requiredAmount;
@@ -3626,7 +3607,7 @@ Generated by Billing System`;
                                 <div className="mt-4 flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg">
                                   <p className="text-sm font-semibold text-gray-800 mb-2">Scan to Pay with UPI</p>
                                   <QRCodeSVG
-                                    value={`upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${requiredAmount.toFixed(2)}&cu=INR`}
+                                    value={`upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${requiredAmount.toFixed(2)}&cu=INR&tn=BillNew`}
                                     size={150}
                                     level="M"
                                     includeMargin={true}
