@@ -19,6 +19,9 @@ export interface BillData {
   billDate: string; // DD/MM/YYYY
   billTime: string; // HH:MM AM/PM
   cashierName: string;
+  
+  customerName?: string;
+  customerPhone?: string;
 
   items: BillItem[];
 
@@ -130,6 +133,13 @@ export const generateESCPOSReceipt = (data: BillData, options: { isPlainText?: b
 
   const pad = (str: string, len: number) => str.padEnd(len);
   const padLeft = (str: string, len: number) => str.padStart(len);
+
+  if (data.customerName) {
+    line(`Customer: ${data.customerName}`);
+  }
+  if (data.customerPhone) {
+    line(`Phone   : ${data.customerPhone}`);
+  }
 
   if (e.billNoDate?.visible !== false) {
     // Row 1

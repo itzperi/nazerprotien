@@ -225,6 +225,19 @@ ${e.footer1?.customText || 'Thank you for your business!'}
 ${e.footer2?.visible !== false ? (e.footer2?.customText || '') : ''}
     `.trim();
 
+    const targetAmountForQR = paymentMethod === 'cash_gpay' 
+      ? (parseFloat(gpayAmount) || 0)
+      : (itemsTotal + extraCharges);
+
+    if (qrSettings.enabled) {
+      if (qrSettings.upiId && targetAmountForQR > 0) {
+        const upiString = `upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(businessInfo?.business_name || shopDetails?.shopName || 'Business')}&am=${targetAmountForQR.toFixed(2)}&cu=INR`;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiString)}`;
+        billContent += `\n\nScan to Pay ₹${targetAmountForQR.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
+      } else if (qrSettings.imagePath) {
+        billContent += `\n\nScan to Pay:\n${qrSettings.imagePath}`;
+      }
+    }
 
     const encodedMessage = encodeURIComponent(billContent);
     const cleanPhone = phone.replace(/\D/g, '');
@@ -1359,6 +1372,9 @@ ${e.footer2?.visible !== false ? (e.footer2?.customText || '') : ''}
       shopCity: '',
       shopPhone1: phone1,
 
+      customerName: bill.customer,
+      customerPhone: bill.customerPhone,
+
       billNumber: bill.billNumber || 'N/A',
       billDate: formatDate(bill.date), // DD-MM-YYYY
       billTime: new Date(bill.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -1523,6 +1539,21 @@ Use "Confirm Bill" to save this bill.
           // Fallback to static uploaded image
           finalQrCodeUrl = qrSettings.imagePath;
         }
+
+        // Convert to Base64 to ensure it prints reliably in the browser print dialog
+        if (finalQrCodeUrl && finalQrCodeUrl.startsWith('http')) {
+          try {
+            const response = await fetch(finalQrCodeUrl);
+            const blob = await response.blob();
+            finalQrCodeUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          } catch (e) {
+            console.error("Failed to load QR code for printing", e);
+          }
+        }
       }
 
       if (isBluetoothConnected) {
@@ -1576,7 +1607,7 @@ Use "Confirm Bill" to save this bill.
 
       lines.forEach((line, index) => {
         // Check if we need a new page
-        if (yPosition > pageHeight - 20) {
+        if (yPosition > pageHeight - 60) {
           pdf.addPage();
           yPosition = 20;
         }
@@ -1584,6 +1615,45 @@ Use "Confirm Bill" to save this bill.
         pdf.text(line, 10, yPosition);
         yPosition += lineHeight;
       });
+
+      // Add QR Code if enabled
+      if (qrSettings.enabled) {
+        let qrUrl = '';
+        const targetAmount = bill.paymentMethod === 'cash_gpay' 
+          ? (bill.gpayAmount || bill.totalAmount) 
+          : bill.totalAmount;
+          
+        if (qrSettings.upiId && targetAmount > 0) {
+          const upiString = `upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${targetAmount.toFixed(2)}&cu=INR`;
+          qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiString)}`;
+        } else if (qrSettings.imagePath) {
+          qrUrl = qrSettings.imagePath;
+        }
+
+        if (qrUrl) {
+          try {
+            const response = await fetch(qrUrl);
+            const blob = await response.blob();
+            const base64Data = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            
+            yPosition += 10;
+            // Check if we need a new page for QR code
+            if (yPosition > pageHeight - 60) {
+              pdf.addPage();
+              yPosition = 20;
+            }
+            pdf.addImage(base64Data, 'PNG', 10, yPosition, 40, 40);
+            pdf.setFont('courier', 'bold');
+            pdf.text(`Scan to Pay: Rs.${targetAmount.toFixed(2)}`, 10, yPosition + 45);
+          } catch (e) {
+            console.error("Failed to add QR code to PDF", e);
+          }
+        }
+      }
 
       // Save the PDF
       const fileName = `Bill_${bill.customer.replace(/\s+/g, '_')}_${bill.date}_${bill.id}.pdf`;
@@ -1613,7 +1683,22 @@ Use "Confirm Bill" to save this bill.
   // Streamlined Send to WhatsApp without unnecessary alerts
   const sendToWhatsApp = async (bill: Bill) => {
     try {
-      const billContent = await generateBillContent(bill, previousBalance, true);
+      let billContent = await generateBillContent(bill, previousBalance, true);
+      
+      const targetAmount = bill.paymentMethod === 'cash_gpay' 
+        ? (bill.gpayAmount || bill.totalAmount) 
+        : bill.totalAmount;
+
+      if (qrSettings.enabled) {
+        if (qrSettings.upiId && targetAmount > 0) {
+          const upiString = `upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${targetAmount.toFixed(2)}&cu=INR`;
+          const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiString)}`;
+          billContent += `\n\nScan to Pay ₹${targetAmount.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
+        } else if (qrSettings.imagePath) {
+          billContent += `\n\nScan to Pay:\n${qrSettings.imagePath}`;
+        }
+      }
+
       const encodedMessage = encodeURIComponent(billContent);
       const phoneNumber = bill.customerPhone.replace(/\D/g, '');
 
