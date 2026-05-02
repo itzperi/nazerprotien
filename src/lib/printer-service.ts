@@ -87,7 +87,7 @@ class PrinterService {
   /**
    * Standard system print fallback with bold formatting and QR code support
    */
-  async printViaSystem(content: string, title: string = 'Bill', qrCodeDataUrl?: string): Promise<void> {
+  async printViaSystem(content: string, title: string = 'Bill', qrCodeDataUrl?: string, amount?: number): Promise<void> {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Please disable popup blocker to print.');
@@ -124,9 +124,10 @@ class PrinterService {
 
     // Create QR code section if provided
     const qrCodeSection = qrCodeDataUrl ? `
-      <div style="text-align: center; margin-top: 20px;">
-        <img src="${qrCodeDataUrl}" alt="QR Code" style="width: 150px; height: 150px;" />
-        <p style="margin-top: 5px; font-size: 12px;">Scan to Pay</p>
+      <div style="text-align: center; margin-top: 20px; border-top: 1px dashed #ccc; padding-top: 15px;">
+        <img id="qr-img" src="${qrCodeDataUrl}" alt="QR Code" style="width: 150px; height: 150px;" />
+        <p style="margin-top: 8px; font-size: 14px; font-weight: bold;">Scan to Pay</p>
+        ${amount !== undefined ? `<p style="margin-top: 4px; font-size: 18px; font-weight: bold; background-color: #f0f0f0; padding: 4px; display: inline-block; border-radius: 4px;">Amount: ₹${amount.toFixed(2)}</p>` : ''}
       </div>
     ` : '';
 
@@ -165,13 +166,25 @@ class PrinterService {
           ${qrCodeSection}
           <script>
             window.onload = function() {
-              setTimeout(function() {
-                window.print();
-                // Close after printing on mobile for better UX
-                if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-                   // Mobile browsers handle window closure differently after print
-                }
-              }, 500);
+              var doPrint = function() {
+                setTimeout(function() {
+                  window.print();
+                  // Close after printing on mobile for better UX
+                  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+                     // Mobile browsers handle window closure differently after print
+                  }
+                }, 100);
+              };
+
+              var qrImg = document.getElementById('qr-img');
+              if (qrImg && !qrImg.complete) {
+                qrImg.onload = doPrint;
+                qrImg.onerror = doPrint;
+                // Fallback timeout in case image takes too long to load
+                setTimeout(doPrint, 3000); 
+              } else {
+                doPrint();
+              }
             };
           </script>
         </body>

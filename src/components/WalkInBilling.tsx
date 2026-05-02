@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, User, Check, X, MessageCircle, Smartphone } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface BillItem {
   no: number;
@@ -26,6 +27,7 @@ interface WalkInBillingProps {
   };
   onPrint?: (bill: any) => Promise<void>;
   businessId?: string;
+  qrSettings?: { enabled: boolean; imagePath: string | null; upiId?: string };
 }
 
 const WalkInBilling: React.FC<WalkInBillingProps> = ({
@@ -40,7 +42,8 @@ const WalkInBilling: React.FC<WalkInBillingProps> = ({
   onWalkInCustomerCreation,
   shopDetails,
   onPrint,
-  businessId
+  businessId,
+  qrSettings
 }) => {
   const [phoneNumber, setPhoneNumber] = useState(selectedCustomerPhone);
   const [isValidPhone, setIsValidPhone] = useState(false);
@@ -327,6 +330,18 @@ Thank you for your business!
                 </pre>
               </div>
             </div>
+            {qrSettings?.enabled && qrSettings?.upiId && previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0) > 0 && (
+              <div className="mt-4 flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg">
+                <p className="text-sm font-semibold text-gray-800 mb-2">Scan to Pay with UPI</p>
+                <QRCodeSVG
+                  value={`upi://pay?pa=${qrSettings.upiId}&pn=${encodeURIComponent(shopDetails?.shopName || 'Business')}&am=${(previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0)).toFixed(2)}&cu=INR`}
+                  size={150}
+                  level="M"
+                  includeMargin={true}
+                />
+                <p className="text-xs text-gray-500 mt-2">Amount: ₹{(previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0)).toFixed(2)}</p>
+              </div>
+            )}
           </div>
         </div>
       )}

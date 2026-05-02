@@ -14,6 +14,7 @@ interface QRSettingsProps {
 export const QRSettings = ({ businessId }: QRSettingsProps) => {
     const [enabled, setEnabled] = useState(false);
     const [imagePath, setImagePath] = useState<string | null>(null);
+    const [upiId, setUpiId] = useState<string>('');
     const [file, setFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export const QRSettings = ({ businessId }: QRSettingsProps) => {
         try {
             const { data, error } = await supabase
                 .from('shops_logins')
-                .select('qr_enabled, qr_image_path')
+                .select('qr_enabled, qr_image_path, upi_id')
                 .eq('business_id', businessId)
                 .single();
 
@@ -40,6 +41,7 @@ export const QRSettings = ({ businessId }: QRSettingsProps) => {
                 const qrData = data as any;
                 setEnabled(qrData.qr_enabled || false);
                 setImagePath(qrData.qr_image_path);
+                setUpiId(qrData.upi_id || '');
             }
         } catch (err) {
             console.error('Unexpected error fetching settings:', err);
@@ -85,7 +87,8 @@ export const QRSettings = ({ businessId }: QRSettingsProps) => {
                 .from('shops_logins')
                 .update({
                     qr_enabled: enabled,
-                    qr_image_path: finalPath
+                    qr_image_path: finalPath,
+                    upi_id: upiId
                 } as any)
                 .eq('business_id', businessId);
 
@@ -112,8 +115,20 @@ export const QRSettings = ({ businessId }: QRSettingsProps) => {
                         id="qr-toggle"
                         checked={enabled}
                         onCheckedChange={setEnabled}
-                        disabled={!imagePath && !file} // logical: can enable only if image exists or uploading one
+                        disabled={!imagePath && !file && !upiId}
                     />
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="upi-id">UPI ID (Virtual Payment Address)</Label>
+                    <Input
+                        id="upi-id"
+                        type="text"
+                        placeholder="e.g., yourname@okbank"
+                        value={upiId}
+                        onChange={(e) => setUpiId(e.target.value)}
+                    />
+                    <p className="text-sm text-gray-500">Entering a UPI ID automatically generates a dynamic QR code with the exact bill amount. The uploaded image below acts as a fallback.</p>
                 </div>
 
                 <div className="space-y-2">
