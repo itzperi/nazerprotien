@@ -231,7 +231,9 @@ ${e.footer2?.visible !== false ? (e.footer2?.customText || '') : ''}
 
     if (targetAmountForQR > 0) {
       const billNumStr = billData?.billNumber || billData?.id || 'New';
-      const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmountForQR.toFixed(2)}&cu=INR&tn=Bill${billNumStr}`;
+      const upiId = qrSettings?.upiId || 'YOUR_UPI_ID';
+      const upiName = businessInfo?.business_name || shopDetails?.shopName || 'Shop';
+      const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${targetAmountForQR.toFixed(2)}&cu=INR&tn=Bill${billNumStr}`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
       billContent += `\n\nScan to pay ₹${targetAmountForQR.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
     }
@@ -1529,7 +1531,9 @@ Use "Confirm Bill" to save this bill.
       
       if (targetAmount > 0) {
         // Dynamic UPI QR Code
-        const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
+        const upiId = qrSettings?.upiId || 'YOUR_UPI_ID';
+        const upiName = businessInfo?.business_name || shopDetails?.shopName || 'Shop';
+        const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
         finalQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
 
         // Convert to Base64 to ensure it prints reliably in the browser print dialog
@@ -1614,7 +1618,9 @@ Use "Confirm Bill" to save this bill.
         : bill.totalAmount;
         
       if (targetAmount > 0) {
-        const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
+        const upiId = qrSettings?.upiId || 'YOUR_UPI_ID';
+        const upiName = businessInfo?.business_name || shopDetails?.shopName || 'Shop';
+        const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
 
         try {
@@ -1675,7 +1681,9 @@ Use "Confirm Bill" to save this bill.
         : bill.totalAmount;
 
       if (targetAmount > 0) {
-        const upiString = `upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
+        const upiId = qrSettings?.upiId || 'YOUR_UPI_ID';
+        const upiName = businessInfo?.business_name || shopDetails?.shopName || 'Shop';
+        const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(upiName)}&am=${targetAmount.toFixed(2)}&cu=INR&tn=Bill${bill.billNumber || bill.id}`;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=1&data=${encodeURIComponent(upiString)}`;
         billContent += `\n\nScan to pay ₹${targetAmount.toFixed(2)}:\n${qrUrl}\n\nOr click here to pay via UPI app:\n${upiString}`;
       }

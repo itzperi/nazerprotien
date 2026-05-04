@@ -87,7 +87,7 @@ ${shopDetails?.gstNumber ? `GST: ${shopDetails.gstNumber}` : ''}
 
 BILL DETAILS
 ════════════════
-Customer: Walk-in Customer
+Customer: ${selectedCustomer || 'Walk-in Customer'}
 Phone: ${formatPhoneDisplay(selectedCustomerPhone)}
 Date: ${new Date().toLocaleDateString('en-IN')}
 Time: ${new Date().toLocaleTimeString('en-IN', { hour12: true })}
@@ -334,7 +334,7 @@ Thank you for your business!
               <div className="mt-4 flex flex-col items-center justify-center p-4 bg-white border border-gray-200 rounded-lg">
                 <p className="text-sm font-semibold text-gray-800 mb-2">Scan to Pay with UPI</p>
                 <QRCodeSVG
-                  value={`upi://pay?pa=YOUR_UPI_ID&pn=YOUR_NAME&am=${(previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0)).toFixed(2)}&cu=INR&tn=BillWalkIn`}
+                  value={`upi://pay?pa=${qrSettings?.upiId || 'YOUR_UPI_ID'}&pn=${encodeURIComponent(shopDetails?.shopName || 'Shop')}&am=${(previousBalance + billItems.reduce((sum, item) => sum + item.amount, 0)).toFixed(2)}&cu=INR&tn=BillWalkIn`}
                   size={150}
                   level="M"
                   includeMargin={true}

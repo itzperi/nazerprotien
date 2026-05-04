@@ -57,37 +57,12 @@ export const QRSettings = ({ businessId }: QRSettingsProps) => {
     const handleSave = async () => {
         setLoading(true);
         try {
-            let finalPath = imagePath;
-
-            if (file) {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${businessId}-qr.${fileExt}`;
-                const filePath = `${fileName}`;
-
-                // Upload to 'qr-codes' bucket
-                const { error: uploadError } = await supabase.storage
-                    .from('qr-codes')
-                    .upload(filePath, file, { upsert: true });
-
-                if (uploadError) {
-                    throw uploadError;
-                }
-
-                // Get public URL
-                const { data: { publicUrl } } = supabase.storage
-                    .from('qr-codes')
-                    .getPublicUrl(filePath);
-
-                finalPath = publicUrl;
-                setImagePath(finalPath);
-            }
-
             // Update Database
             const { error: dbError } = await supabase
                 .from('shops_logins')
                 .update({
                     qr_enabled: enabled,
-                    qr_image_path: finalPath,
+                    qr_image_path: null,
                     upi_id: upiId
                 } as any)
                 .eq('business_id', businessId);
@@ -115,7 +90,7 @@ export const QRSettings = ({ businessId }: QRSettingsProps) => {
                         id="qr-toggle"
                         checked={enabled}
                         onCheckedChange={setEnabled}
-                        disabled={!imagePath && !file && !upiId}
+                        disabled={!upiId}
                     />
                 </div>
 
@@ -128,32 +103,8 @@ export const QRSettings = ({ businessId }: QRSettingsProps) => {
                         value={upiId}
                         onChange={(e) => setUpiId(e.target.value)}
                     />
-                    <p className="text-sm text-gray-500">Entering a UPI ID automatically generates a dynamic QR code with the exact bill amount. The uploaded image below acts as a fallback.</p>
+                    <p className="text-sm text-gray-500">Entering a UPI ID automatically generates a dynamic QR code with the exact bill amount.</p>
                 </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="qr-image">Upload QR Image</Label>
-                    <Input
-                        id="qr-image"
-                        type="file"
-                        accept="image/png, image/jpeg, image/jpg, image/svg+xml"
-                        onChange={handleFileChange}
-                    />
-                    <p className="text-sm text-gray-500">Supports PNG, JPG, JPEG, SVG</p>
-                </div>
-
-                {imagePath && (
-                    <div className="mt-4">
-                        <p className="text-sm font-medium mb-2">Current Image Preview:</p>
-                        <div className="border rounded p-2 flex justify-center bg-white">
-                            <img
-                                src={imagePath}
-                                alt="QR Code Preview"
-                                className="max-h-40 object-contain"
-                            />
-                        </div>
-                    </div>
-                )}
 
                 <Button
                     onClick={handleSave}
